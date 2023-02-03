@@ -1,0 +1,39 @@
+version: '3'
+services:
+  mcrsrv-book:
+    container_name: mcrsrv-book
+    build: .
+    ports:
+      - "8083:8083"
+    restart: on-failure
+    volumes:
+      - .:/usr/src/app/
+    command: go run cmd/main.go -b 0.0.0.0
+    depends_on:
+      - postgres-book
+    networks:
+      app-network:
+    env_file:
+      - .env
+  postgres-book:
+    image: postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: book_db
+    ports:
+      - "1113:5432"
+    networks:
+      - app-network
+    volumes:
+      - postgres-data-book:/var/lib/postgresql/data/
+    env_file:
+      - .env
+
+volumes:
+  postgres-data-book:
+
+networks:
+  app-network:
+    driver: bridge
+    external: true
