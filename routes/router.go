@@ -7,6 +7,7 @@ import (
 	"github.com/GromoVlad/go_microsrv_books/internal/controllers/deleteBook"
 	"github.com/GromoVlad/go_microsrv_books/internal/controllers/findBook"
 	"github.com/GromoVlad/go_microsrv_books/internal/controllers/listBook"
+	"github.com/GromoVlad/go_microsrv_books/internal/controllers/someAction"
 	"github.com/GromoVlad/go_microsrv_books/internal/controllers/updateBook"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -29,6 +30,8 @@ func Run() {
 		log.Fatalf("Ошибка загрузки переменных из .env: %s", err.Error())
 	}
 
+	go someAction.SomeAction()
+
 	/** Роуты */
 	api(router)
 
@@ -49,6 +52,7 @@ func api(router *gin.Engine) {
 	router.POST("/book", createBook.Endpoint)
 	router.PUT("/book/:bookId", updateBook.Endpoint)
 	router.DELETE("/book/:bookId", deleteBook.Endpoint)
+
 }
 
 func swaggerInfo(swaggerInfo *swag.Spec) {

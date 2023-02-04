@@ -5,6 +5,7 @@ services:
     build: .
     ports:
       - "8083:8083"
+      - "7561:7561"
     restart: on-failure
     volumes:
       - .:/usr/src/app/
