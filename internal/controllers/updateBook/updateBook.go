@@ -1,28 +1,51 @@
 package updateBook
 
 import (
+	"context"
+	protobuf "github.com/GromoVlad/go_microsrv_books/internal/controllers/updateBook/gRPC"
 	"github.com/GromoVlad/go_microsrv_books/internal/repository/bookRepository"
 	updateBookRequest "github.com/GromoVlad/go_microsrv_books/internal/request/updateBook"
-	"github.com/GromoVlad/go_microsrv_books/internal/response/updateBook"
-	"github.com/GromoVlad/go_microsrv_books/support/localContext"
-	"github.com/gin-gonic/gin"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
-// Endpoint - Обновить запись о книге
-// UpdateBook godoc
-// @Summary      Обновить запись о книге
-// @Tags         Books
-// @Produce      json
-// @Param        bookId  path  int  true  "Идентификатор книги"
-// @Param  		 RequestBody  body  updateBook.DTO  true	"Тело запроса"
-// @Success      200  {object}  updateBook.Response
-// @Router       /book/{bookId} [put]
-func Endpoint(ginContext *gin.Context) {
-	context := localContext.LocalContext{Context: ginContext}
-	dto, bookId := updateBookRequest.GetRequest(context)
+func (s *updateBookGRPC) UpdateBook(ctx context.Context, request *protobuf.Request) (*protobuf.Response, error) {
+	dto := updateBookRequest.GetRequest(request)
+	book, err := bookRepository.UpdateBook(dto, int(request.BookId))
 
-	book := bookRepository.UpdateBook(context, dto, bookId)
+	response := &protobuf.Response{
+		Success:     true,
+		Name:        book.Name,
+		BookId:      int32(book.BookId),
+		AuthorId:    int32(book.AuthorId),
+		Category:    book.Category,
+		Description: nil,
+		CreatedAt:   nil,
+		UpdatedAt:   nil,
+	}
 
-	result := updateBook.Response{Data: book, Success: true}
-	context.StatusCreated(gin.H{"data": result.Data, "success": result.Success})
+	if err != nil {
+		response.ErrorMessage = err.Error()
+		return response, nil
+	}
+
+	if book.Description.Valid == true {
+		response.Description = &wrappers.StringValue{Value: book.Description.String}
+	}
+	if book.CreatedAt.Valid == true {
+		response.CreatedAt = &wrappers.StringValue{Value: book.CreatedAt.Time.String()}
+	}
+	if book.UpdatedAt.Valid == true {
+		response.UpdatedAt = &wrappers.StringValue{Value: book.UpdatedAt.Time.String()}
+	}
+
+	return response, nil
+}
+
+type updateBookGRPC struct {
+	protobuf.UnimplementedUpdateBookServer
+	savedFeatures []*protobuf.Response // read-only after initialized
+}
+
+func NewServer() *updateBookGRPC {
+	return &updateBookGRPC{}
 }

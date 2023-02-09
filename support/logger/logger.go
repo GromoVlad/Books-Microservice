@@ -70,8 +70,8 @@ func findOrCreateLogFile() *os.File {
 	var logFile *os.File
 	var err error
 
-	year, month, day := time.Now().Date()
-	logFilePath := fmt.Sprintf("storage/logs/date-%v-%s-%v.log", year, month, day)
+	timeNow := time.Now()
+	logFilePath := fmt.Sprintf("storage/logs/%s.log", timeNow.Format(`2006-01-02`))
 	files, _ := filepath.Glob(logFilePath)
 	isFind := len(files) > 0
 

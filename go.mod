@@ -11,7 +11,6 @@ require (
 	github.com/swaggo/gin-swagger v1.5.3
 	github.com/swaggo/swag v1.8.10
 	google.golang.org/grpc v1.52.3
-	google.golang.org/grpc/examples v0.0.0-20230201212035-3151e834fa25
 	google.golang.org/protobuf v1.28.1
 )
 

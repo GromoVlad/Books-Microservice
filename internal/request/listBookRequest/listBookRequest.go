@@ -1,6 +1,8 @@
 package listBookRequest
 
-import "github.com/GromoVlad/go_microsrv_books/support/localContext"
+import (
+	protobuf "github.com/GromoVlad/go_microsrv_books/internal/controllers/listBook/gRPC"
+)
 
 type DTO struct {
 	Page     int    `form:"page,omitempty"       json:"page,omitempty"       binding:"omitempty,number"`
@@ -12,19 +14,24 @@ type DTO struct {
 	Offset   int
 }
 
-func GetRequest(context localContext.LocalContext) DTO {
+func GetRequest(request *protobuf.Request) DTO {
 	var dto DTO
 
-	err := context.Context.ShouldBindQuery(&dto)
-	context.BadRequestError(err)
-
-	if dto.Page == 0 {
-		dto.Page = 1
-	}
-	if dto.Limit == 0 {
-		dto.Limit = 10
-	}
+	dto.Page = int(request.Page.Value)
+	dto.Limit = int(request.Limit.Value)
 	dto.Offset = (dto.Page - 1) * dto.Limit
+	if request.BookId != nil {
+		dto.BookId = int(request.BookId.Value)
+	}
+	if request.Name != nil {
+		dto.Name = request.Name.Value
+	}
+	if request.AuthorId != nil {
+		dto.AuthorId = int(request.AuthorId.Value)
+	}
+	if request.Category != nil {
+		dto.Category = request.Category.Value
+	}
 
 	return dto
 }

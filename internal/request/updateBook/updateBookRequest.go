@@ -1,25 +1,27 @@
 package updateBook
 
 import (
-	"github.com/GromoVlad/go_microsrv_books/support/localContext"
-	"strconv"
+	"database/sql"
+	protobuf "github.com/GromoVlad/go_microsrv_books/internal/controllers/updateBook/gRPC"
 )
 
 type DTO struct {
-	Name        string `form:"name,omitempty"        json:"name,omitempty"          binding:"omitempty"`
-	Category    string `form:"category,omitempty"    json:"category,omitempty"      binding:"omitempty"`
-	AuthorId    int    `form:"author_id,omitempty"   json:"author_id,omitempty"     binding:"omitempty,number"`
-	Description string `form:"description,omitempty" json:"description,omitempty"   binding:"omitempty"`
+	Name        string
+	Category    string
+	AuthorId    int
+	Description sql.NullString
 }
 
-func GetRequest(context localContext.LocalContext) (DTO, int) {
+func GetRequest(request *protobuf.Request) DTO {
 	var dto DTO
+	dto.Name = request.Name
+	dto.Category = request.Category
+	dto.AuthorId = int(request.AuthorId)
+	dto.Description = sql.NullString{String: "", Valid: false}
 
-	err := context.Context.ShouldBindJSON(&dto)
-	context.BadRequestError(err)
+	if request.Description != nil {
+		dto.Description = sql.NullString{String: request.Description.Value, Valid: true}
+	}
 
-	bookId, err := strconv.Atoi(context.Context.Param("bookId"))
-	context.BadRequestError(err)
-
-	return dto, bookId
+	return dto
 }

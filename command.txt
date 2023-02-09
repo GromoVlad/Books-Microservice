@@ -23,5 +23,9 @@ curl -fsSL \
     https://raw.githubusercontent.com/pressly/goose/master/install.sh |\
     sh
 ---------------------------------------------------------------------------------------------------
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    internal/controllers/someAction/grpc/route_guide.proto
+
 
 docker exec -it ИД bash

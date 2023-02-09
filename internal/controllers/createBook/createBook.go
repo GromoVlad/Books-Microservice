@@ -1,27 +1,29 @@
 package createBook
 
 import (
+	"context"
+	protobuf "github.com/GromoVlad/go_microsrv_books/internal/controllers/createBook/gRPC"
 	"github.com/GromoVlad/go_microsrv_books/internal/repository/bookRepository"
 	createBookRequest "github.com/GromoVlad/go_microsrv_books/internal/request/createBook"
-	"github.com/GromoVlad/go_microsrv_books/internal/response/createBook"
-	"github.com/GromoVlad/go_microsrv_books/support/localContext"
-	"github.com/gin-gonic/gin"
 )
 
-// Endpoint - Создать запись о книге
-// CreateBook godoc
-// @Summary      Создать запись о книге
-// @Tags         Books
-// @Produce      json
-// @Param  		 RequestBody  body  createBook.DTO  true	"Тело запроса"
-// @Success      201  {object}  createBook.Response
-// @Router       /book [post]
-func Endpoint(ginContext *gin.Context) {
-	context := localContext.LocalContext{Context: ginContext}
-	dto := createBookRequest.GetRequest(context)
+func (s *createBookGRPC) CreateBook(ctx context.Context, request *protobuf.Request) (*protobuf.Response, error) {
+	dto := createBookRequest.GetRequest(request)
+	created, err := bookRepository.CreateBook(dto)
+	var message string
+	if err != nil {
+		message = err.Error()
+	}
 
-	bookRepository.CreateBook(context, dto)
+	bookResponse := &protobuf.Response{Success: created, Message: message}
+	return bookResponse, nil
+}
 
-	result := createBook.Response{Success: true}
-	context.StatusCreated(gin.H{"success": result.Success})
+type createBookGRPC struct {
+	protobuf.UnimplementedCreateBookServer
+	savedFeatures []*protobuf.Response // read-only after initialized
+}
+
+func NewServer() *createBookGRPC {
+	return &createBookGRPC{}
 }

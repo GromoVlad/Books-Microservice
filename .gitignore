@@ -3,3 +3,4 @@
 cmd/app
 docs/*
 storage/logs/*.log
+*.pb.go

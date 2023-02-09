@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+option go_package = "github.com/GromoVlad/go_microsrv_books/internal/controllers/deleteBook/gRPC";
+
+package DeleteBookGrpc;
+
+service DeleteBook {
+  rpc DeleteBook(Request) returns (Response) {}
+}
+
+message Request {
+  int32 bookId = 1;
+}
+
+message Response {
+  bool success = 1;
+  string error_message = 2;
+}

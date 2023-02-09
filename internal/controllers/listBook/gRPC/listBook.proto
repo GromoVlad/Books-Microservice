@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+option go_package = "gin_tonic/internal/controllers/apiGateway/book/listBook/gRPC/listBook";
+
+package ListBookGrpc;
+
+service ListBook {
+  rpc ListBook(Request) returns (Response) {}
+}
+
+message Request {
+  google.protobuf.Int32Value page = 1;
+  google.protobuf.Int32Value limit = 2;
+  google.protobuf.Int32Value book_id = 3;
+  google.protobuf.StringValue name = 4;
+  google.protobuf.Int32Value author_id = 5;
+  google.protobuf.StringValue category = 6;
+}
+
+message Response {
+  int32 current_page = 1;
+  int32 limit = 2;
+  repeated Book books = 3;
+  string error_message = 4;
+}
+
+message Book {
+  string name = 1;
+  int32 book_id = 2;
+  int32 author_id = 3;
+  string category = 4;
+  google.protobuf.StringValue description = 5;
+  google.protobuf.StringValue created_at = 6;
+  google.protobuf.StringValue updated_at = 7;
+}

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+option go_package = "github.com/GromoVlad/go_microsrv_books/internal/controllers/updateBook/gRPC";
+
+package UpdateBookGrpc;
+
+service UpdateBook {
+  rpc UpdateBook(Request) returns (Response) {}
+}
+
+message Request {
+  int32 book_id = 1;
+  string name = 2;
+  string category = 3;
+  int32 author_id = 4;
+  google.protobuf.StringValue description = 5;
+}
+
+message Response {
+  bool success = 1;
+  string name = 2;
+  int32 book_id = 3;
+  int32 author_id = 4;
+  string category = 5;
+  google.protobuf.StringValue description = 6;
+  google.protobuf.StringValue created_at = 7;
+  google.protobuf.StringValue updated_at = 8;
+  string error_message = 9;
+}

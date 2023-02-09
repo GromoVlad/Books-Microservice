@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+import "google/protobuf/wrappers.proto";
+
+option go_package = "github.com/GromoVlad/go_microsrv_books/internal/controllers/createBook/gRPC";
+
+package CreateBookGrpc;
+
+service CreateBook {
+  rpc CreateBook(Request) returns (Response) {}
+}
+
+message Request {
+  string name = 1;
+  string category = 2;
+  int32  author_id = 3;
+  google.protobuf.StringValue description = 4;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+}

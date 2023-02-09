@@ -1,26 +1,28 @@
 package deleteBook
 
 import (
+	"context"
+	protobuf "github.com/GromoVlad/go_microsrv_books/internal/controllers/deleteBook/gRPC"
 	"github.com/GromoVlad/go_microsrv_books/internal/repository/bookRepository"
-	"github.com/GromoVlad/go_microsrv_books/support/localContext"
-	"github.com/gin-gonic/gin"
-	"strconv"
 )
 
-// Endpoint - Удалить запись о книге
-// UpdateBook godoc
-// @Summary      Удалить запись о книге
-// @Tags         Books
-// @Produce      json
-// @Param        bookId  path  int  true  "Идентификатор книги"
-// @Success      200  {object}  deleteBook.Response
-// @Router       /book/{bookId} [delete]
-func Endpoint(ginContext *gin.Context) {
-	context := localContext.LocalContext{Context: ginContext}
+func (s *deleteBookGRPC) DeleteBook(ctx context.Context, request *protobuf.Request) (*protobuf.Response, error) {
+	bookId := int(request.BookId)
+	deleted, err := bookRepository.DeleteBook(bookId)
+	var message string
+	if err != nil {
+		message = err.Error()
+	}
 
-	bookId, err := strconv.Atoi(context.Context.Param("bookId"))
-	context.BadRequestError(err)
-	bookRepository.DeleteBook(context, bookId)
+	bookResponse := &protobuf.Response{Success: deleted, ErrorMessage: message}
+	return bookResponse, nil
+}
 
-	context.StatusCreated(gin.H{"success": true})
+type deleteBookGRPC struct {
+	protobuf.UnimplementedDeleteBookServer
+	savedFeatures []*protobuf.Response // read-only after initialized
+}
+
+func NewServer() *deleteBookGRPC {
+	return &deleteBookGRPC{}
 }

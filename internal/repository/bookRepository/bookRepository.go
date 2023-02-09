@@ -2,82 +2,95 @@ package bookRepository
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"github.com/GromoVlad/go_microsrv_books/internal/database/DB"
 	"github.com/GromoVlad/go_microsrv_books/internal/model/books"
 	"github.com/GromoVlad/go_microsrv_books/internal/request/createBook"
 	"github.com/GromoVlad/go_microsrv_books/internal/request/listBookRequest"
 	"github.com/GromoVlad/go_microsrv_books/internal/request/updateBook"
-	"github.com/GromoVlad/go_microsrv_books/support/localContext"
+	"github.com/GromoVlad/go_microsrv_books/support/logger"
 	"strconv"
 	"time"
 )
 
-func ListBooks(context localContext.LocalContext, dto listBookRequest.DTO) []books.Book {
+func ListBooks(dto listBookRequest.DTO) ([]books.Book, error) {
 	var books []books.Book
 	var queryArgs []any
-	var i int
+	var countArgs int
 	query := "SELECT * FROM books.books WHERE 1=1"
 
 	if dto.BookId != 0 {
-		i++
-		query += " AND book_id = $" + strconv.Itoa(i) + " "
+		countArgs++
+		query += " AND book_id = $" + strconv.Itoa(countArgs) + " "
 		queryArgs = append(queryArgs, dto.BookId)
 	}
 	if dto.AuthorId != 0 {
-		i++
-		query += " AND author_id = $" + strconv.Itoa(i) + " "
+		countArgs++
+		query += " AND author_id = $" + strconv.Itoa(countArgs) + " "
 		queryArgs = append(queryArgs, dto.AuthorId)
 	}
 	if dto.Name != "" {
-		i++
-		query += " AND name like $" + strconv.Itoa(i) + " "
+		countArgs++
+		query += " AND name like $" + strconv.Itoa(countArgs) + " "
 		queryArgs = append(queryArgs, "%"+dto.Name+"%")
 	}
 	if dto.Category != "" {
-		i++
-		query += " AND category = $" + strconv.Itoa(i)
+		countArgs++
+		query += " AND category = $" + strconv.Itoa(countArgs)
 		queryArgs = append(queryArgs, dto.Category)
 	}
 
-	limit := i + 1
+	limit := countArgs + 1
 	offset := limit + 1
 	query += " LIMIT $" + strconv.Itoa(limit) + " OFFSET $" + strconv.Itoa(offset) + " ;"
 	queryArgs = append(queryArgs, dto.Limit, dto.Offset)
 
-	err := DB.Connect().Select(&books, query, queryArgs...)
-	context.InternalServerError(err)
+	connect := DB.Connect()
+	defer connect.Close()
+	err := connect.Select(&books, query, queryArgs...)
 
-	return books
+	if err != nil {
+		logger.ErrorLog("InternalServerError", err.Error())
+		return books, err
+	}
+
+	return books, nil
 }
 
-func FindOrFailBook(context localContext.LocalContext, bookId int) books.Book {
+func FindOrFailBook(bookId int) (books.Book, error) {
+	connect := DB.Connect()
+	defer connect.Close()
+
 	var book books.Book
-	DB.Connect().Get(&book, "SELECT * FROM books.books WHERE book_id = $1", bookId)
+	connect.Get(&book, "SELECT * FROM books.books WHERE book_id = $1", bookId)
 
 	if book.BookId == 0 {
-		context.NotFoundError(
-			errors.New(fmt.Sprintf("Книга с идентификатором %d не зарегистрирована в системе", bookId)),
-		)
+		err := fmt.Errorf(fmt.Sprintf("Книга с идентификатором %d не зарегистрирована в системе", bookId))
+		logger.ErrorLog("NotFound", err.Error())
+		return book, err
 	}
-	return book
+
+	return book, nil
 }
 
-func CreateBook(context localContext.LocalContext, dto createBook.DTO) {
+func CreateBook(dto createBook.DTO) (bool, error) {
 	var book books.Book
+	connect := DB.Connect()
+	defer connect.Close()
 
-	_ = DB.Connect().Get(
+	_ = connect.Get(
 		&book,
 		"SELECT book_id FROM books.books WHERE name = $1 AND author_id = $2",
 		dto.Name,
 		dto.AuthorId,
 	)
 	if book.BookId != 0 {
-		context.AlreadyExistsError(errors.New("Книга с названием " + dto.Name + " уже зарегистрирована в системе"))
+		err := fmt.Errorf("Книга с названием " + dto.Name + " уже зарегистрирована в системе")
+		logger.ErrorLog("NotFound", err.Error())
+		return false, err
 	}
 
-	transaction := DB.Connect().MustBegin()
+	transaction := connect.MustBegin()
 	_, err := transaction.NamedExec(
 		"INSERT INTO books.books (name, author_id, category, description, created_at, updated_at) "+
 			"VALUES (:name, :author_id, :category, :description, :created_at, :updated_at)",
@@ -85,48 +98,83 @@ func CreateBook(context localContext.LocalContext, dto createBook.DTO) {
 			Name:        dto.Name,
 			AuthorId:    dto.AuthorId,
 			Category:    dto.Category,
-			Description: sql.NullString{String: dto.Description, Valid: true},
+			Description: dto.Description,
 			CreatedAt:   sql.NullTime{Time: time.Now(), Valid: true},
 			UpdatedAt:   sql.NullTime{},
 		},
 	)
-	context.StatusConflictError(err)
+	if err != nil {
+		logger.ErrorLog("StatusConflictError", err.Error())
+		return false, err
+	}
 
 	err = transaction.Commit()
-	context.InternalServerError(err)
+	if err != nil {
+		logger.ErrorLog("InternalServerError", err.Error())
+		return false, err
+	}
+
+	return true, nil
 }
 
-func UpdateBook(context localContext.LocalContext, dto updateBook.DTO, bookId int) books.Book {
-	book := FindOrFailBook(context, bookId)
-	mappingBook(&book, dto)
+func UpdateBook(dto updateBook.DTO, bookId int) (books.Book, error) {
+	book, err := FindOrFailBook(bookId)
+	if err != nil {
+		return book, err
+	}
 
-	transaction := DB.Connect().MustBegin()
-	_, err := transaction.NamedExec(
+	mappingBook(&book, dto)
+	connect := DB.Connect()
+	defer connect.Close()
+
+	transaction := connect.MustBegin()
+	_, err = transaction.NamedExec(
 		"UPDATE books.books SET updated_at = :updated_at, name = :name, category = :category, "+
 			"author_id = :author_id, description = :description WHERE book_id = :book_id",
 		&book,
 	)
-	context.StatusConflictError(err)
+	if err != nil {
+		logger.ErrorLog("StatusConflictError", err.Error())
+		return book, err
+	}
 
 	err = transaction.Commit()
-	context.InternalServerError(err)
+	if err != nil {
+		logger.ErrorLog("InternalServerError", err.Error())
+		return book, err
+	}
 
-	return book
+	return book, nil
 }
 
-func DeleteBook(context localContext.LocalContext, bookId int) {
-	FindOrFailBook(context, bookId)
+func DeleteBook(bookId int) (bool, error) {
+	_, err := FindOrFailBook(bookId)
+	if err != nil {
+		return false, err
+	}
 
-	transaction := DB.Connect().MustBegin()
-	_, err := transaction.NamedExec("DELETE FROM books.books WHERE book_id = :book_id", &books.Book{BookId: bookId})
-	context.StatusConflictError(err)
+	connect := DB.Connect()
+	defer connect.Close()
+
+	transaction := connect.MustBegin()
+	_, err = transaction.NamedExec("DELETE FROM books.books WHERE book_id = :book_id", &books.Book{BookId: bookId})
+	if err != nil {
+		logger.ErrorLog("StatusConflictError", err.Error())
+		return false, err
+	}
 
 	err = transaction.Commit()
-	context.InternalServerError(err)
+	if err != nil {
+		logger.ErrorLog("InternalServerError", err.Error())
+		return false, err
+	}
+
+	return true, nil
 }
 
 func mappingBook(book *books.Book, dto updateBook.DTO) {
 	book.UpdatedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	book.Description = dto.Description
 	if dto.Name != "" {
 		book.Name = dto.Name
 	}
@@ -135,8 +183,5 @@ func mappingBook(book *books.Book, dto updateBook.DTO) {
 	}
 	if dto.AuthorId != 0 {
 		book.AuthorId = dto.AuthorId
-	}
-	if dto.Description != "" {
-		book.Description = sql.NullString{String: dto.Description, Valid: true}
 	}
 }
